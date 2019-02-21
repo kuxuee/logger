@@ -24,7 +24,6 @@ const (
 ===================
 */
 func fileSize(file string) int64 {
-	fmt.Println("fileSize", file)
 	f, e := os.Stat(file)
 	if e != nil {
 		fmt.Println(e.Error())
@@ -67,6 +66,7 @@ type Handler interface {
 
 type LogHandler struct {
 	lg *log.Logger
+	mu sync.Mutex
 }
 
 type ConsoleHander struct {
@@ -82,48 +82,44 @@ type RotatingHandler struct {
 	LogHandler
 	dir      string
 	filename string
-	maxNum   int
 	maxSize  int64
+	filetime string
 	suffix   int
 	logfile  *os.File
-	mu       sync.Mutex
 }
 
 var Console = NewConsoleHandler()
 
 func NewConsoleHandler() *ConsoleHander {
 	l := log.New(os.Stderr, "", log.LstdFlags)
-	return &ConsoleHander{LogHandler: LogHandler{l}}
+	return &ConsoleHander{LogHandler: LogHandler{lg: l}}
 }
 
 func NewFileHandler(filepath string) *FileHandler {
 	logfile, _ := os.OpenFile(filepath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	l := log.New(logfile, "", log.LstdFlags)
 	return &FileHandler{
-		LogHandler: LogHandler{l},
+		LogHandler: LogHandler{lg: l},
 		logfile:    logfile,
 	}
 }
 
-func NewRotatingHandler(dir string, filename string, maxNum int, maxSize int64) *RotatingHandler {
-	logfile, _ := os.OpenFile(dir+"/"+filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
-	l := log.New(logfile, "", log.LstdFlags)
-
+func NewRotatingHandler(dir string, filename string, maxSize int64) *RotatingHandler {
 	h := &RotatingHandler{
-		LogHandler: LogHandler{l},
-		dir:        dir,
-		filename:   filename,
-		maxNum:     maxNum,
-		maxSize:    maxSize,
-		suffix:     0,
+		dir:      dir,
+		filename: filename,
+		maxSize:  maxSize,
+		suffix:   0,
 	}
+	h.newFileTime()
+
+	logfile, _ := os.OpenFile(h.generateFileName(), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	l := log.New(logfile, "", log.LstdFlags)
+	h.LogHandler = LogHandler{lg: l}
+	h.logfile = logfile
 
 	if h.isMustRename() {
 		h.rename()
-	} else {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		h.lg.SetOutput(logfile)
 	}
 
 	// monitor filesize per second
@@ -185,18 +181,26 @@ func (l *LogHandler) SetPrefix(prefix string) {
 }
 
 func (l *LogHandler) Debug(v ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.lg.Output(3, fmt.Sprintln("debug", v))
 }
 
 func (l *LogHandler) Info(v ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.lg.Output(3, fmt.Sprintln("info", v))
 }
 
 func (l *LogHandler) Warn(v ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.lg.Output(3, fmt.Sprintln("warn", v))
 }
 
 func (l *LogHandler) Error(v ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.lg.Output(3, fmt.Sprintln("error", v))
 }
 
@@ -217,22 +221,27 @@ func (h *RotatingHandler) close() {
 }
 
 func (h *RotatingHandler) isMustRename() bool {
-	if h.maxNum > 1 {
-		if fileSize(h.dir+"/"+h.filename) >= h.maxSize {
-			return true
-		}
+	if fileSize(h.generateFileName()) >= h.maxSize {
+		return true
 	}
 	return false
 }
 
-func (h *RotatingHandler) rename() {
-	h.suffix = h.suffix%h.maxNum + 1
+func (h *RotatingHandler) newFileTime() {
+	t := time.Now()
+	h.filetime = t.Format("20060102150405")
+}
 
-	if h.logfile != nil {
-		h.logfile.Close()
+func (h *RotatingHandler) generateFileName() string {
+	if h.suffix <= 0 {
+		return fmt.Sprintf("%s/%s.%s.0.log", h.dir, h.filename, h.filetime)
 	}
+	return fmt.Sprintf("%s/%s.%s.%d.log", h.dir, h.filename, h.filetime, h.suffix)
+}
 
-	newpath := fmt.Sprintf("%s/%s.%d.log", h.dir, h.filename, h.suffix)
+func (h *RotatingHandler) rename() {
+	h.suffix = h.suffix + 1
+	newpath := h.generateFileName()
 	if isExist(newpath) {
 		os.Remove(newpath)
 	}
@@ -240,9 +249,11 @@ func (h *RotatingHandler) rename() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	filepath := h.dir + "/" + h.filename
-	os.Rename(filepath, newpath)
-	h.logfile, _ = os.Create(filepath)
+	if h.logfile != nil {
+		h.logfile.Close()
+	}
+
+	h.logfile, _ = os.OpenFile(newpath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	h.lg.SetOutput(h.logfile)
 }
 
