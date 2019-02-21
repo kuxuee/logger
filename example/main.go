@@ -2,32 +2,29 @@ package main
 
 import (
 	"log"
-	"time"
 
 	"github.com/kuxuee/logger"
 )
 
 func main() {
-
+	//.:日志输出目录
+	//test:日志文件名，无须后缀
+	//1*1024*1024:单个日志文件大小,达到日志大小后组件自动切割日志
 	rotatingHandler := logger.NewRotatingHandler(".", "test", 1*1024*1024)
 
-	// logger set handlers: console, rotating
+	//设置同时输出到控制台及文件
 	logger.SetHandlers(logger.Console, rotatingHandler)
 
 	defer logger.Close()
 
-	// logger set flags
+	//设置日志标签
 	logger.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
-	// logger set log level
+	//设置日志级别
 	logger.SetLevel(logger.INFO)
 
-	for i := 0; i < 100; i++ {
-		logger.Debug("something1", "debug")
-		logger.Info("something:", i)
-		logger.Warn("something")
-		logger.Error("something")
-		time.Sleep(1 * time.Second)
-	}
-
+	logger.Debug("something1", "debug")
+	logger.Info("something:")
+	logger.Warn("something")
+	logger.Error("something")
 }
