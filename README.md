@@ -17,7 +17,6 @@ package main
 
 import (
 	"log"
-	"time"
 
 	"github.com/kuxuee/logger"
 )
