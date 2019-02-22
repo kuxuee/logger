@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type Level int32
@@ -16,6 +18,10 @@ const (
 	INFO
 	WARN
 	ERROR
+)
+
+const (
+	INFINITE int = 0
 )
 
 /*
@@ -82,32 +88,38 @@ type RotatingHandler struct {
 	LogHandler
 	dir      string
 	filename string
+	maxNum   int
 	maxSize  int64
 	filetime string
 	suffix   int
 	logfile  *os.File
 }
 
-var Console = NewConsoleHandler()
+var Console, _ = NewConsoleHandler()
 
-func NewConsoleHandler() *ConsoleHander {
+func NewConsoleHandler() (*ConsoleHander, error) {
 	l := log.New(os.Stderr, "", log.LstdFlags)
-	return &ConsoleHander{LogHandler: LogHandler{lg: l}}
+	return &ConsoleHander{LogHandler: LogHandler{lg: l}}, nil
 }
 
-func NewFileHandler(filepath string) *FileHandler {
+func NewFileHandler(filepath string) (*FileHandler, error) {
 	logfile, _ := os.OpenFile(filepath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	l := log.New(logfile, "", log.LstdFlags)
 	return &FileHandler{
 		LogHandler: LogHandler{lg: l},
 		logfile:    logfile,
-	}
+	}, nil
 }
 
-func NewRotatingHandler(dir string, filename string, maxSize int64) *RotatingHandler {
+func NewRotatingHandler(dir string, filename string, maxNum int, maxSize int64) (*RotatingHandler, error) {
+	if maxNum < 0 {
+		return nil, errors.Errorf("maxNum is less than 0")
+	}
+
 	h := &RotatingHandler{
 		dir:      dir,
 		filename: filename,
+		maxNum:   maxNum,
 		maxSize:  maxSize,
 		suffix:   0,
 	}
@@ -133,7 +145,7 @@ func NewRotatingHandler(dir string, filename string, maxSize int64) *RotatingHan
 		}
 	}()
 
-	return h
+	return h, nil
 }
 
 func (l *LogHandler) SetOutput(w io.Writer) {
@@ -240,7 +252,16 @@ func (h *RotatingHandler) generateFileName() string {
 }
 
 func (h *RotatingHandler) rename() {
-	h.suffix = h.suffix + 1
+	if INFINITE == h.maxNum {
+		h.suffix = h.suffix + 1
+	} else {
+		if 0 == (h.suffix+1)%h.maxNum {
+			h.suffix = 0
+		} else {
+			h.suffix = h.suffix%h.maxNum + 1
+		}
+	}
+
 	newpath := h.generateFileName()
 	if isExist(newpath) {
 		os.Remove(newpath)

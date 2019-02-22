@@ -16,16 +16,23 @@ go get github.com/kuxuee/logger
 package main
 
 import (
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/kuxuee/logger"
 )
 
 func main() {
-	//.:日志输出目录
-	//test:日志文件名，无须后缀
-	//1*1024*1024:单个日志文件大小,达到日志大小后组件自动切割日志
-	rotatingHandler := logger.NewRotatingHandler(".", "test", 1*1024*1024)
+	//日志输出目录
+	//日志文件名，无须后缀
+	//同一日志最大文件个数,达到个数后会自动往前覆盖,INFINITE为无限个
+	//单个日志文件大小,达到日志大小后组件自动切割日志
+	rotatingHandler, err := logger.NewRotatingHandler(".", "test", logger.INFINITE, 1*1024*1024)
+	if err != nil {
+		fmt.Printf("NewRotatingHandler error:%v", err)
+		return
+	}
 
 	//设置同时输出到控制台及文件
 	logger.SetHandlers(logger.Console, rotatingHandler)
@@ -33,14 +40,17 @@ func main() {
 	defer logger.Close()
 
 	//设置日志标签
-	logger.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	logger.SetFlags(log.Ldate | log.Ltime | log.Lshortfile | log.Lmicroseconds)
 
 	//设置日志级别
 	logger.SetLevel(logger.INFO)
 
-	logger.Debug("something1", "debug")
-	logger.Info("something:")
-	logger.Warn("something")
-	logger.Error("something")
+	for i := 0; i < 10; i++ {
+		logger.Debug("something1", "debug")
+		logger.Info("something:", i)
+		logger.Warn("something")
+		logger.Error("something")
+		time.Sleep(1 * time.Second)
+	}
 }
 ```
