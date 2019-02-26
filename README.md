@@ -11,12 +11,32 @@ logger是一个GO语言编写的简单日志库
 go get github.com/kuxuee/logger
 ```
 
-#例子
+#配置文件logs.config
+* name:单个logger配置项名字，由函数logger.NewLogger传入该名字作为参数来读取配置
+* levle:日志级别0-debug 1-info 2-warm 3-error
+* data:同一日志配置多个输出端
+** handle:输出端console-控制台 file-普通文件 rotating-切片文件
+** dir:切片文件目录
+** filename:切片文件名,无须后缀名
+** maxnum:最大支持文件数,达到设置值后向前覆盖文件
+** maxsize:单个文件大小,达到大小后切片写新日志
+```logs.config
+{
+	"logs" : [{
+		"name":"default", 
+		"level":0,
+		"data":[
+			{"handle":"console"},
+			{"handle":"rotating", "dir":"./log", "filename":"default", "maxnum":0, "maxsize":"1MB"}
+			]
+	}]
+}
+```
+
 ```go
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -24,26 +44,13 @@ import (
 )
 
 func main() {
-	//日志输出目录
-	//日志文件名，无须后缀
-	//同一日志最大文件个数,达到个数后会自动往前覆盖,INFINITE为无限个
-	//单个日志文件大小,达到日志大小后组件自动切割日志
-	rotatingHandler, err := logger.NewRotatingHandler(".", "test", logger.INFINITE, 1*1024*1024)
+	//default对应配置文件中name字段的值
+	err := logger.NewLogger("default")
 	if err != nil {
-		fmt.Printf("NewRotatingHandler error:%v", err)
-		return
+		log.Fatal(err)
 	}
 
-	//设置同时输出到控制台及文件
-	logger.SetHandlers(logger.Console, rotatingHandler)
-
 	defer logger.Close()
-
-	//设置日志标签
-	logger.SetFlags(log.Ldate | log.Ltime | log.Lshortfile | log.Lmicroseconds)
-
-	//设置日志级别
-	logger.SetLevel(logger.INFO)
 
 	for i := 0; i < 10; i++ {
 		logger.Debug("something1", "debug")
@@ -53,4 +60,5 @@ func main() {
 		time.Sleep(1 * time.Second)
 	}
 }
+
 ```

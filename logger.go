@@ -1,17 +1,21 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
-type Level int32
+type Level int
 
 const (
 	DEBUG Level = iota
@@ -95,6 +99,24 @@ type RotatingHandler struct {
 	logfile  *os.File
 }
 
+type logconfig struct {
+	Handle   string `json:"handle"`
+	Dir      string `json:"dir"`
+	Filename string `json:"filename"`
+	Maxnum   int    `json:"maxnum"`
+	Maxsize  string `json:"maxsize"`
+}
+
+type logconfigs struct {
+	Name  string      `json:"name"`
+	Level int         `json:"level"`
+	Data  []logconfig `json:"data"`
+}
+
+type configs struct {
+	Logs []logconfigs `json:"logs"`
+}
+
 var Console, _ = NewConsoleHandler()
 
 func NewConsoleHandler() (*ConsoleHander, error) {
@@ -103,6 +125,19 @@ func NewConsoleHandler() (*ConsoleHander, error) {
 }
 
 func NewFileHandler(filepath string) (*FileHandler, error) {
+	i := strings.LastIndex(filepath, "\\")
+	if -1 == i {
+		i = strings.LastIndex(filepath, "/")
+		if -1 == i {
+			return nil, fmt.Errorf("Error filepath:%v", filepath)
+		}
+	}
+	dir := filepath[:i]
+	err := os.MkdirAll(dir, 0711)
+	if err != nil {
+		return nil, err
+	}
+
 	logfile, _ := os.OpenFile(filepath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	l := log.New(logfile, "", log.LstdFlags)
 	return &FileHandler{
@@ -115,7 +150,10 @@ func NewRotatingHandler(dir string, filename string, maxNum int, maxSize int64) 
 	if maxNum < 0 {
 		return nil, errors.Errorf("maxNum is less than 0")
 	}
-
+	err := os.MkdirAll(dir, 0711)
+	if err != nil {
+		return nil, err
+	}
 	h := &RotatingHandler{
 		dir:      dir,
 		filename: filename,
@@ -146,6 +184,74 @@ func NewRotatingHandler(dir string, filename string, maxNum int, maxSize int64) 
 	}()
 
 	return h, nil
+}
+
+func newHandler(lg logconfig) (Handler, error) {
+	if "console" == lg.Handle {
+		return NewConsoleHandler()
+	} else if "file" == lg.Handle {
+		return NewFileHandler(lg.Filename)
+	} else if "rotating" == lg.Handle {
+		l := len(lg.Maxsize)
+		if l < 3 {
+			return nil, fmt.Errorf("Error maxsize:%v", lg.Maxsize)
+		}
+		unitStr := lg.Maxsize[l-2:]
+		maxSizeStr := lg.Maxsize[:l-2]
+		maxSize, err := strconv.ParseInt(maxSizeStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		switch strings.ToLower(unitStr) {
+		case "mb":
+			maxSize = maxSize * 1024 * 1024
+		case "kb":
+			maxSize = maxSize * 1024
+		default:
+			return nil, fmt.Errorf("Error maxsize type:%v", unitStr)
+		}
+		fmt.Println("maxsize:", maxSize)
+		return NewRotatingHandler(lg.Dir, lg.Filename, lg.Maxnum, maxSize)
+	}
+	return nil, fmt.Errorf("Unknown handle:%v", lg.Handle)
+}
+
+func NewLogger(name string) error {
+	filename := "./logs.config"
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	c := configs{}
+	err = json.Unmarshal(bytes, &c)
+	if err != nil {
+		return err
+	}
+
+	level := 0
+	for _, lgs := range c.Logs {
+		if name == lgs.Name {
+			level = lgs.Level
+			if level < 0 || level > int(ERROR) {
+				return fmt.Errorf("Unknown log name:%v level:%v", name, lgs.Level)
+			}
+			for _, lg := range lgs.Data {
+				handler, err := newHandler(lg)
+				if err != nil {
+					Close()
+					return err
+				}
+				logger.handlers = append(logger.handlers, handler)
+			}
+		}
+	}
+	if len(logger.handlers) <= 0 {
+		return fmt.Errorf("Create logger error:%v", name)
+	}
+
+	SetFlags(log.Ldate | log.Ltime | log.Lshortfile | log.Lmicroseconds)
+	SetLevel(Level(level))
+	return nil
 }
 
 func (l *LogHandler) SetOutput(w io.Writer) {
@@ -314,10 +420,8 @@ type _Logger struct {
 }
 
 var logger = &_Logger{
-	handlers: []Handler{
-		Console,
-	},
-	level: DEBUG,
+	handlers: []Handler{},
+	level:    DEBUG,
 }
 
 func SetHandlers(handlers ...Handler) {
@@ -433,4 +537,5 @@ func Close() {
 	for i := range logger.handlers {
 		logger.handlers[i].close()
 	}
+	logger.handlers = logger.handlers[0:0]
 }
