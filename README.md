@@ -18,7 +18,7 @@ go get github.com/kuxuee/logger
 	* handle:输出端console-控制台 file-普通文件 rotating-切片文件
 	* dir:切片文件目录
 	* filename:切片文件名,无须后缀名
-	* maxnum:最大支持文件数,达到设置值后向前覆盖文件
+	* maxnum:最大支持文件数,达到设置值后向前覆盖文件,0为无限个
 	* maxsize:单个文件大小,达到大小后切片写新日志
 ```logs.config
 {
