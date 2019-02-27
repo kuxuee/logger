@@ -90,7 +90,7 @@ type RotatingHandler struct {
 	filename string
 	maxNum   int
 	maxSize  int64
-	filetime string
+	filetime time.Time
 	suffix   int
 	logfile  *os.File
 }
@@ -123,7 +123,7 @@ func NewRotatingHandler(dir string, filename string, maxNum int, maxSize int64) 
 		maxSize:  maxSize,
 		suffix:   0,
 	}
-	h.newFileTime()
+	h.newFileData()
 
 	logfile, _ := os.OpenFile(h.generateFileName(), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	l := log.New(logfile, "", log.LstdFlags)
@@ -236,19 +236,32 @@ func (h *RotatingHandler) isMustRename() bool {
 	if fileSize(h.generateFileName()) >= h.maxSize {
 		return true
 	}
+	t := time.Now()
+	if t.Year() > h.filetime.Year() ||
+		t.Year() == h.filetime.Year() && t.Month() > h.filetime.Month() ||
+		t.Year() == h.filetime.Year() && t.Month() == h.filetime.Month() && t.Day() > h.filetime.Day() {
+
+		h.newFileData()
+		return true
+	}
 	return false
 }
 
-func (h *RotatingHandler) newFileTime() {
-	t := time.Now()
-	h.filetime = t.Format("20060102150405")
+func (h *RotatingHandler) newFileData() {
+	h.filetime = time.Now()
+	if INFINITE == h.maxNum {
+		h.suffix = -1
+	} else {
+		h.suffix = h.maxNum - 1
+	}
 }
 
 func (h *RotatingHandler) generateFileName() string {
+	filetime := h.filetime.Format("20060102150405")
 	if h.suffix <= 0 {
-		return fmt.Sprintf("%s/%s.%s.0.log", h.dir, h.filename, h.filetime)
+		return fmt.Sprintf("%s/%s.%s.0.log", h.dir, h.filename, filetime)
 	}
-	return fmt.Sprintf("%s/%s.%s.%d.log", h.dir, h.filename, h.filetime, h.suffix)
+	return fmt.Sprintf("%s/%s.%s.%d.log", h.dir, h.filename, filetime, h.suffix)
 }
 
 func (h *RotatingHandler) rename() {
