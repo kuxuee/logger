@@ -13,11 +13,11 @@ go get github.com/kuxuee/logger
 
 # 配置文件logs.config
 * name:单个logger配置项名字，由函数logger.NewLogger传入该名字作为参数来读取配置
-* levle:日志级别0-debug 1-info 2-warm 3-error 4-panic 5-fatal
 * data:同一日志配置多个输出端
 	* handle:输出端console-控制台 file-普通文件 rotating-切片文件
 	* dir:切片文件目录
 	* filename:切片文件名,无须后缀名
+	* levle:日志级别0-debug 1-info 2-warm 3-error 4-panic 5-fatal
 	* maxnum:最大支持文件数,达到设置值后向前覆盖文件,0为无限个
 	* maxsize:单个文件大小,达到大小后切片写新日志
 ```logs.config
