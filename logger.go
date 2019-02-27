@@ -222,7 +222,6 @@ func newHandler(lg logconfig) (Handler, error) {
 		default:
 			return nil, fmt.Errorf("Error maxsize type:%v", unitStr)
 		}
-		fmt.Println("maxsize:", maxSize)
 		return NewRotatingHandler(lg.Dir, lg.Filename, lg.Maxnum, maxSize)
 	}
 	return nil, fmt.Errorf("Unknown handle:%v", lg.Handle)
