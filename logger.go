@@ -297,12 +297,12 @@ func (l *LogHandler) Output(calldepth int, s string) {
 func (l *LogHandler) Outputf(format string, v ...interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.lg.Output(3, fmt.Sprintf(format, v...))
+	l.lg.Output(4, fmt.Sprintf(format, v...))
 }
 
 func (l *LogHandler) Debug(v ...interface{}) {
 	if l.level <= DEBUG {
-		l.Output(3, fmt.Sprintln("debug", v))
+		l.Output(4, fmt.Sprintln("debug", v))
 	}
 }
 
@@ -314,7 +314,7 @@ func (l *LogHandler) Debugf(format string, v ...interface{}) {
 
 func (l *LogHandler) Info(v ...interface{}) {
 	if l.level <= INFO {
-		l.Output(3, fmt.Sprintln("info", v))
+		l.Output(4, fmt.Sprintln("info", v))
 	}
 }
 
@@ -326,7 +326,7 @@ func (l *LogHandler) Infof(format string, v ...interface{}) {
 
 func (l *LogHandler) Warn(v ...interface{}) {
 	if l.level <= WARN {
-		l.Output(3, fmt.Sprintln("warn", v))
+		l.Output(4, fmt.Sprintln("warn", v))
 	}
 }
 
@@ -338,7 +338,7 @@ func (l *LogHandler) Warnf(format string, v ...interface{}) {
 
 func (l *LogHandler) Error(v ...interface{}) {
 	if l.level <= ERROR {
-		l.Output(3, fmt.Sprintln("error", v))
+		l.Output(4, fmt.Sprintln("error", v))
 	}
 }
 
@@ -350,7 +350,7 @@ func (l *LogHandler) Errorf(format string, v ...interface{}) {
 
 func (l *LogHandler) Panic(v ...interface{}) {
 	if l.level <= PANIC {
-		l.Output(3, fmt.Sprintln("panic", v))
+		l.Output(4, fmt.Sprintln("panic", v))
 	}
 }
 
@@ -362,7 +362,7 @@ func (l *LogHandler) Panicf(format string, v ...interface{}) {
 
 func (l *LogHandler) Fatal(v ...interface{}) {
 	if l.level <= FATAL {
-		l.Output(3, fmt.Sprintln("fatal", v))
+		l.Output(4, fmt.Sprintln("fatal", v))
 	}
 }
 
