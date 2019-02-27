@@ -2,8 +2,9 @@
 logger是一个GO语言编写的简单日志库
 
 # 特点
-* 支持日志级别: DEBUG, INFO, WARN, ERROR
+* 支持日志级别: DEBUG, INFO, WARN, ERROR, PANIC, FATAL
 * 支持同时输出日志到控制台及文件:ConsoleHander, FileHandler, RotatingHandler
+* 支持文件切片
 * 基于golang基础包-log包开发
 
 # 安装
