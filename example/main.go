@@ -20,6 +20,10 @@ func main() {
 		logger.Info("something:", i)
 		logger.Warn("something")
 		logger.Error("something")
+		logger.Infof("This is info:%s-%d", "go", 11)
 		time.Sleep(1 * time.Second)
+		if 5 == i {
+			logger.Fatal("fatal")
+		}
 	}
 }

@@ -13,7 +13,7 @@ go get github.com/kuxuee/logger
 
 # 配置文件logs.config
 * name:单个logger配置项名字，由函数logger.NewLogger传入该名字作为参数来读取配置
-* levle:日志级别0-debug 1-info 2-warm 3-error
+* levle:日志级别0-debug 1-info 2-warm 3-error 4-panic 5-fatal
 * data:同一日志配置多个输出端
 	* handle:输出端console-控制台 file-普通文件 rotating-切片文件
 	* dir:切片文件目录
@@ -23,12 +23,11 @@ go get github.com/kuxuee/logger
 ```logs.config
 {
 	"logs" : [{
-		"name":"default", 
-		"level":0,
-		"data":[
-			{"handle":"console"},
-			{"handle":"rotating", "dir":"./log", "filename":"default", "maxnum":0, "maxsize":"1MB"}
-			]
+	"name":"default", 
+	"data":[
+		{"handle":"console", "level":3},
+		{"handle":"rotating", "dir":"./log", "filename":"default", "level":0, "maxnum":0, "maxsize":"1MB"}
+		]
 	}]
 }
 ```
@@ -45,7 +44,6 @@ import (
 )
 
 func main() {
-	//default对应配置文件中name字段的值
 	err := logger.NewLogger("default")
 	if err != nil {
 		log.Fatal(err)
@@ -58,7 +56,11 @@ func main() {
 		logger.Info("something:", i)
 		logger.Warn("something")
 		logger.Error("something")
+		logger.Infof("This is info:%s-%d", "go", 11)
 		time.Sleep(1 * time.Second)
+		if 5 == i {
+			logger.Fatal("fatal")
+		}
 	}
 }
 

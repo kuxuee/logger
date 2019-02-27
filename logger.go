@@ -22,6 +22,8 @@ const (
 	INFO
 	WARN
 	ERROR
+	PANIC
+	FATAL
 )
 
 const (
@@ -54,29 +56,34 @@ func isExist(path string) bool {
 */
 type Handler interface {
 	SetOutput(w io.Writer)
-	Output(calldepth int, s string) error
-	Printf(format string, v ...interface{})
-	Print(v ...interface{})
-	Println(v ...interface{})
-	Fatal(v ...interface{})
-	Fatalf(format string, v ...interface{})
-	Fatalln(v ...interface{})
+	Output(calldepth int, s string)
+	Outputf(format string, v ...interface{})
 
 	Debug(v ...interface{})
+	Debugf(format string, v ...interface{})
 	Info(v ...interface{})
+	Infof(format string, v ...interface{})
 	Warn(v ...interface{})
+	Warnf(format string, v ...interface{})
 	Error(v ...interface{})
+	Errorf(format string, v ...interface{})
+	Panic(v ...interface{})
+	Panicf(format string, v ...interface{})
+	Fatal(v ...interface{})
+	Fatalf(format string, v ...interface{})
 
 	Flags() int
 	SetFlags(flag int)
+	SetLevel(level Level)
 	Prefix() string
 	SetPrefix(prefix string)
 	close()
 }
 
 type LogHandler struct {
-	lg *log.Logger
-	mu sync.Mutex
+	lg    *log.Logger
+	mu    sync.Mutex
+	level Level
 }
 
 type ConsoleHander struct {
@@ -99,18 +106,23 @@ type RotatingHandler struct {
 	logfile  *os.File
 }
 
+/*
+===================
+ json config
+===================
+*/
 type logconfig struct {
 	Handle   string `json:"handle"`
 	Dir      string `json:"dir"`
 	Filename string `json:"filename"`
+	Level    int    `json:"level"`
 	Maxnum   int    `json:"maxnum"`
 	Maxsize  string `json:"maxsize"`
 }
 
 type logconfigs struct {
-	Name  string      `json:"name"`
-	Level int         `json:"level"`
-	Data  []logconfig `json:"data"`
+	Name string      `json:"name"`
+	Data []logconfig `json:"data"`
 }
 
 type configs struct {
@@ -228,19 +240,20 @@ func NewLogger(name string) error {
 		return err
 	}
 
-	level := 0
 	for _, lgs := range c.Logs {
 		if name == lgs.Name {
-			level = lgs.Level
-			if level < 0 || level > int(ERROR) {
-				return fmt.Errorf("Unknown log name:%v level:%v", name, lgs.Level)
-			}
 			for _, lg := range lgs.Data {
+				if lg.Level < 0 || lg.Level > int(ERROR) {
+					Close()
+					return fmt.Errorf("Unknown log name:%v level:%v", name, lg.Level)
+				}
 				handler, err := newHandler(lg)
 				if err != nil {
 					Close()
 					return err
 				}
+				handler.SetLevel(Level(lg.Level))
+				handler.SetFlags(log.Ldate | log.Ltime | log.Lshortfile | log.Lmicroseconds)
 				logger.handlers = append(logger.handlers, handler)
 			}
 		}
@@ -249,37 +262,7 @@ func NewLogger(name string) error {
 		return fmt.Errorf("Create logger error:%v", name)
 	}
 
-	SetFlags(log.Ldate | log.Ltime | log.Lshortfile | log.Lmicroseconds)
-	SetLevel(Level(level))
 	return nil
-}
-
-func (l *LogHandler) SetOutput(w io.Writer) {
-	l.lg.SetOutput(w)
-}
-
-func (l *LogHandler) Output(calldepth int, s string) error {
-	return l.lg.Output(calldepth, s)
-}
-
-func (l *LogHandler) Printf(format string, v ...interface{}) {
-	l.lg.Printf(format, v...)
-}
-
-func (l *LogHandler) Print(v ...interface{}) { l.lg.Print(v...) }
-
-func (l *LogHandler) Println(v ...interface{}) { l.lg.Println(v...) }
-
-func (l *LogHandler) Fatal(v ...interface{}) {
-	l.lg.Output(3, fmt.Sprint(v...))
-}
-
-func (l *LogHandler) Fatalf(format string, v ...interface{}) {
-	l.lg.Output(3, fmt.Sprintf(format, v...))
-}
-
-func (l *LogHandler) Fatalln(v ...interface{}) {
-	l.lg.Output(3, fmt.Sprintln(v...))
 }
 
 func (l *LogHandler) Flags() int {
@@ -290,6 +273,10 @@ func (l *LogHandler) SetFlags(flag int) {
 	l.lg.SetFlags(flag)
 }
 
+func (l *LogHandler) SetLevel(level Level) {
+	l.level = level
+}
+
 func (l *LogHandler) Prefix() string {
 	return l.lg.Prefix()
 }
@@ -298,28 +285,92 @@ func (l *LogHandler) SetPrefix(prefix string) {
 	l.lg.SetPrefix(prefix)
 }
 
-func (l *LogHandler) Debug(v ...interface{}) {
+func (l *LogHandler) SetOutput(w io.Writer) {
+	l.lg.SetOutput(w)
+}
+
+func (l *LogHandler) Output(calldepth int, s string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.lg.Output(3, fmt.Sprintln("debug", v))
+	l.lg.Output(calldepth, s)
+}
+
+func (l *LogHandler) Outputf(format string, v ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.lg.Output(3, fmt.Sprintf(format, v...))
+}
+
+func (l *LogHandler) Debug(v ...interface{}) {
+	if l.level <= DEBUG {
+		l.Output(3, fmt.Sprintln("debug", v))
+	}
+}
+
+func (l *LogHandler) Debugf(format string, v ...interface{}) {
+	if l.level <= DEBUG {
+		l.Outputf("debug ["+format+"]", v...)
+	}
 }
 
 func (l *LogHandler) Info(v ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.lg.Output(3, fmt.Sprintln("info", v))
+	if l.level <= INFO {
+		l.Output(3, fmt.Sprintln("info", v))
+	}
+}
+
+func (l *LogHandler) Infof(format string, v ...interface{}) {
+	if l.level <= INFO {
+		l.Outputf("info ["+format+"]", v...)
+	}
 }
 
 func (l *LogHandler) Warn(v ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.lg.Output(3, fmt.Sprintln("warn", v))
+	if l.level <= WARN {
+		l.Output(3, fmt.Sprintln("warn", v))
+	}
+}
+
+func (l *LogHandler) Warnf(format string, v ...interface{}) {
+	if l.level <= WARN {
+		l.Outputf("warn ["+format+"]", v...)
+	}
 }
 
 func (l *LogHandler) Error(v ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.lg.Output(3, fmt.Sprintln("error", v))
+	if l.level <= ERROR {
+		l.Output(3, fmt.Sprintln("error", v))
+	}
+}
+
+func (l *LogHandler) Errorf(format string, v ...interface{}) {
+	if l.level <= ERROR {
+		l.Outputf("error ["+format+"]", v...)
+	}
+}
+
+func (l *LogHandler) Panic(v ...interface{}) {
+	if l.level <= PANIC {
+		l.Output(3, fmt.Sprintln("panic", v))
+	}
+}
+
+func (l *LogHandler) Panicf(format string, v ...interface{}) {
+	if l.level <= PANIC {
+		l.Outputf("panic ["+format+"]", v...)
+	}
+}
+
+func (l *LogHandler) Fatal(v ...interface{}) {
+	if l.level <= FATAL {
+		l.Output(3, fmt.Sprintln("fatal", v))
+	}
+}
+
+func (l *LogHandler) Fatalf(format string, v ...interface{}) {
+	if l.level <= FATAL {
+		l.Outputf("fatal ["+format+"]", v...)
+	}
 }
 
 func (l *LogHandler) close() {
@@ -328,12 +379,16 @@ func (l *LogHandler) close() {
 
 func (h *FileHandler) close() {
 	if h.logfile != nil {
+		h.mu.Lock()
+		defer h.mu.Unlock()
 		h.logfile.Close()
 	}
 }
 
 func (h *RotatingHandler) close() {
 	if h.logfile != nil {
+		h.mu.Lock()
+		defer h.mu.Unlock()
 		h.logfile.Close()
 	}
 }
@@ -415,45 +470,73 @@ func (h *RotatingHandler) fileCheck() {
 */
 type _Logger struct {
 	handlers []Handler
-	level    Level
 	mu       sync.Mutex
 }
 
 var logger = &_Logger{
 	handlers: []Handler{},
-	level:    DEBUG,
 }
 
-func SetHandlers(handlers ...Handler) {
-	logger.handlers = handlers
-}
-
-func SetFlags(flag int) {
+func Debug(v ...interface{}) {
 	for i := range logger.handlers {
-		logger.handlers[i].SetFlags(flag)
+		logger.handlers[i].Debug(v...)
 	}
 }
 
-func SetLevel(level Level) {
-	logger.level = level
-}
-
-func Print(v ...interface{}) {
+func Debugf(format string, v ...interface{}) {
 	for i := range logger.handlers {
-		logger.handlers[i].Print(v...)
+		logger.handlers[i].Debugf(format, v...)
 	}
 }
 
-func Printf(format string, v ...interface{}) {
+func Info(v ...interface{}) {
 	for i := range logger.handlers {
-		logger.handlers[i].Printf(format, v...)
+		logger.handlers[i].Info(v...)
 	}
 }
 
-func Println(v ...interface{}) {
+func Infof(format string, v ...interface{}) {
 	for i := range logger.handlers {
-		logger.handlers[i].Println(v...)
+		logger.handlers[i].Infof(format, v...)
 	}
+}
+
+func Warn(v ...interface{}) {
+	for i := range logger.handlers {
+		logger.handlers[i].Warn(v...)
+	}
+}
+
+func Warnf(format string, v ...interface{}) {
+	for i := range logger.handlers {
+		logger.handlers[i].Warnf(format, v...)
+	}
+}
+
+func Error(v ...interface{}) {
+	for i := range logger.handlers {
+		logger.handlers[i].Error(v...)
+	}
+}
+
+func Errorf(format string, v ...interface{}) {
+	for i := range logger.handlers {
+		logger.handlers[i].Errorf(format, v...)
+	}
+}
+
+func Panic(v ...interface{}) {
+	for i := range logger.handlers {
+		logger.handlers[i].Panic(v...)
+	}
+	panic(fmt.Sprint(v...))
+}
+
+func Panicf(format string, v ...interface{}) {
+	for i := range logger.handlers {
+		logger.handlers[i].Panicf(format, v...)
+	}
+	panic(fmt.Sprintf(format, v...))
 }
 
 func Fatal(v ...interface{}) {
@@ -468,69 +551,6 @@ func Fatalf(format string, v ...interface{}) {
 		logger.handlers[i].Fatalf(format, v...)
 	}
 	os.Exit(1)
-}
-
-func Fatalln(v ...interface{}) {
-	for i := range logger.handlers {
-		logger.handlers[i].Fatalln(v...)
-	}
-	os.Exit(1)
-}
-
-func Panic(v ...interface{}) {
-	s := fmt.Sprint(v...)
-	for i := range logger.handlers {
-		logger.handlers[i].Output(3, s)
-	}
-	panic(s)
-}
-
-func Panicf(format string, v ...interface{}) {
-	s := fmt.Sprintf(format, v...)
-	for i := range logger.handlers {
-		logger.handlers[i].Output(3, s)
-	}
-	panic(s)
-}
-
-func Panicln(v ...interface{}) {
-	s := fmt.Sprintln(v...)
-	for i := range logger.handlers {
-		logger.handlers[i].Output(3, s)
-	}
-	panic(s)
-}
-
-func Debug(v ...interface{}) {
-	if logger.level <= DEBUG {
-		for i := range logger.handlers {
-			logger.handlers[i].Debug(v...)
-		}
-	}
-}
-
-func Info(v ...interface{}) {
-	if logger.level <= INFO {
-		for i := range logger.handlers {
-			logger.handlers[i].Info(v...)
-		}
-	}
-}
-
-func Warn(v ...interface{}) {
-	if logger.level <= WARN {
-		for i := range logger.handlers {
-			logger.handlers[i].Warn(v...)
-		}
-	}
-}
-
-func Error(v ...interface{}) {
-	if logger.level <= ERROR {
-		for i := range logger.handlers {
-			logger.handlers[i].Error(v...)
-		}
-	}
 }
 
 func Close() {
