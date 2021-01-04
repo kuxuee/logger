@@ -1,0 +1,27 @@
+### https://raw.github.com/github/gitignore/e313e296c1e284d908adcb95bf4f2812617d4de1/Go.gitignore
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+
+### https://raw.github.com/github/gitignore/e313e296c1e284d908adcb95bf4f2812617d4de1/Global/JetBrains.gitignore
+
+# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and WebStorm
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+.idea/
+
+# CMake
+cmake-build-*/
+
+# IntelliJ
+out/
