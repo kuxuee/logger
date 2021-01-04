@@ -9,10 +9,10 @@ logger是一个GO语言编写的简单日志库
 
 # 安装
 ```go
-go get github.com/kuxuee/logger
+go get github.com/leisurelicht/logger
 ```
 
-# 配置文件logs.config
+# 配置文件logs.json (json格式文件)
 * name:单个logger配置项名字，由函数logger.NewLogger传入该名字作为参数来读取配置
 * data:同一日志配置多个输出端
 	* handle:输出端console-控制台 file-普通文件 rotating-切片文件
@@ -45,7 +45,7 @@ import (
 )
 
 func main() {
-	err := logger.NewLogger("default")
+	err := logger.NewLogger("./logs.json", "default")
 	if err != nil {
 		log.Fatal(err)
 	}
