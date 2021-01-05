@@ -227,8 +227,7 @@ func newHandler(lg logconfig) (Handler, error) {
 	return nil, fmt.Errorf("Unknown handle:%v", lg.Handle)
 }
 
-func NewLogger(name string) error {
-	filename := "./logs.config"
+func NewLogger(filename, name string) error {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
