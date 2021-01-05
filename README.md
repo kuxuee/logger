@@ -10,7 +10,7 @@ logger是一个GO语言编写的简单日志库
 
 # 安装
 ```go
-go get github.com/leisurelicht/logger
+go get github.com/kuxuee/logger
 ```
 
 # 配置文件logs.json (json格式文件)
@@ -42,7 +42,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/leisurelicht/logger"
+	"github.com/kuxuee/logger"
 )
 
 func main() {
