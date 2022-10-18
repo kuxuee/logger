@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	err := logger.NewLogger("default")
+	err := logger.NewLogger("./logs.config", "default")
 	if err != nil {
 		log.Fatal(err)
 	}

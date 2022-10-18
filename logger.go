@@ -187,11 +187,8 @@ func NewRotatingHandler(dir string, filename string, maxNum int, maxSize int64) 
 	// monitor filesize per second
 	go func() {
 		timer := time.NewTicker(1 * time.Second)
-		for {
-			select {
-			case <-timer.C:
-				h.fileCheck()
-			}
+		for range timer.C {
+			h.fileCheck()
 		}
 	}()
 
@@ -227,8 +224,7 @@ func newHandler(lg logconfig) (Handler, error) {
 	return nil, fmt.Errorf("Unknown handle:%v", lg.Handle)
 }
 
-func NewLogger(name string) error {
-	filename := "./logs.config"
+func NewLogger(filename, name string) error {
 	bytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
